@@ -1,0 +1,58 @@
+controller:
+  configMap: haproxy-config
+
+extraVolumes:
+  - name: tls-cert
+    secret:
+      secretName: haproxy-tls-cert
+
+  - name: combined-cert
+    emptyDir: {}
+
+  - name: truststore
+    configMap:
+      name: haproxy-truststore
+
+  - name: haproxy-config
+    configMap:
+      name: haproxy-config
+
+extraVolumeMounts:
+  - name: haproxy-config
+    mountPath: /usr/local/etc/haproxy/haproxy.cfg
+    subPath: haproxy.cfg
+    readOnly: true
+
+  - name: combined-cert
+    mountPath: /usr/local/etc/haproxy/tls.pem
+    subPath: tls.pem
+    readOnly: true
+
+  - name: truststore
+    mountPath: /usr/local/etc/haproxy/truststore
+    readOnly: true
+
+initContainers:
+  - name: init-tls
+    image: busybox
+    command:
+      - sh
+      - -c
+      - cat /certs/tls.crt /certs/tls.key > /combined/tls.pem
+    volumeMounts:
+      - name: tls-cert
+        mountPath: /certs
+      - name: combined-cert
+        mountPath: /combined
+
+service:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+      nodePort: 32444
+

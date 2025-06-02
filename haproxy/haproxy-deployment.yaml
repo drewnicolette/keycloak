@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: haproxy
+  template:
+    metadata:
+      labels:
+        app: haproxy
+    spec:
+      initContainers:
+        - name: init-tls
+          image: busybox
+          command: ['sh', '-c', 'cat /certs/tls.crt /certs/tls.key > /combined/tls.pem']
+          volumeMounts:
+            - name: tls-cert
+              mountPath: /certs
+            - name: combined-cert
+              mountPath: /combined
+      containers:
+        - name: haproxy
+          image: haproxy:latest
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - name: haproxy-config
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg
+              subPath: haproxy.cfg
+            - name: combined-cert
+              mountPath: /usr/local/etc/haproxy/tls.pem
+              subPath: tls.pem
+            - name: truststore
+              mountPath: /usr/local/etc/haproxy/truststore
+      volumes:
+        - name: tls-cert
+          secret:
+            secretName: haproxy-tls-cert
+        - name: combined-cert
+          emptyDir: {}
+        - name: truststore
+          configMap:
+            name: haproxy-truststore
+        - name: haproxy-config
+          configMap:
+            name: haproxy-config
+
